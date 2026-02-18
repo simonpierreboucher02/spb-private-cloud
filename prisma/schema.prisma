@@ -1,0 +1,230 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== USERS & AUTH ====================
+
+model User {
+  id               String   @id @default(cuid())
+  email            String?  @unique
+  name             String?
+  passwordHash     String
+  role             String   @default("user") // admin, user, viewer
+  twoFactorSecret  String?
+  twoFactorEnabled Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @default(now())
+
+  files         File[]
+  folders       Folder[]
+  permissions   Permission[]
+  notifications Notification[]
+  apiKeys       ApiKey[]
+  activityLogs  ActivityLog[]
+
+  @@index([email])
+  @@index([role])
+}
+
+// ==================== FILES & FOLDERS ====================
+
+model File {
+  id            String    @id @default(cuid())
+  name          String
+  storagePath   String
+  size          BigInt
+  mimeType      String
+  folderId      String?
+  userId        String?
+  folder        Folder?   @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  user          User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  isEncrypted   Boolean   @default(false)
+  encryptionIV  String?
+  thumbnailPath String?
+  ocrText       String?
+  aiTags        String?
+  aiDescription String?
+  aiEmbedding   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sharedLinks   SharedLink[]
+  activities    ActivityLog[]
+  metadata      FileMetadata?
+  tags          FileTag[]
+  versions      FileVersion[]
+
+  @@index([folderId])
+  @@index([userId])
+  @@index([name])
+  @@index([mimeType])
+  @@index([createdAt])
+}
+
+model Folder {
+  id          String       @id @default(cuid())
+  name        String
+  parentId    String?
+  userId      String?
+  parent      Folder?      @relation("FolderTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children    Folder[]     @relation("FolderTree")
+  user        User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  files       File[]
+  permissions Permission[]
+  createdAt   DateTime     @default(now())
+
+  @@index([parentId])
+  @@index([userId])
+}
+
+// ==================== SHARING ====================
+
+model SharedLink {
+  id           String    @id @default(cuid())
+  fileId       String
+  file         File      @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  token        String    @unique @default(cuid())
+  expiresAt    DateTime?
+  passwordHash String?
+  mode         String    @default("DOWNLOAD")
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+
+  @@index([token])
+  @@index([fileId])
+}
+
+// ==================== PERMISSIONS ====================
+
+model Permission {
+  id        String   @id @default(cuid())
+  userId    String
+  folderId  String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  folder    Folder   @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  level     String   @default("read") // read, write, admin
+  createdAt DateTime @default(now())
+
+  @@unique([userId, folderId])
+  @@index([userId])
+  @@index([folderId])
+}
+
+// ==================== ACTIVITY ====================
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  action    String
+  fileId    String?
+  userId    String?
+  file      File?    @relation(fields: [fileId], references: [id], onDelete: SetNull)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  details   String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([action])
+  @@index([userId])
+}
+
+// ==================== METADATA & TAGS ====================
+
+model FileMetadata {
+  id          String   @id @default(cuid())
+  fileId      String   @unique
+  file        File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  description String?
+  isFavorite  Boolean  @default(false)
+  customDates String?
+  annotations String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Tag {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  color     String    @default("#6b7280")
+  createdAt DateTime  @default(now())
+  files     FileTag[]
+}
+
+model FileTag {
+  id     String @id @default(cuid())
+  fileId String
+  tagId  String
+  file   File   @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([fileId, tagId])
+  @@index([fileId])
+  @@index([tagId])
+}
+
+// ==================== VERSIONING ====================
+
+model FileVersion {
+  id          String   @id @default(cuid())
+  fileId      String
+  file        File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  versionNum  Int
+  storagePath String
+  size        BigInt
+  changeNote  String?
+  createdAt   DateTime @default(now())
+
+  @@unique([fileId, versionNum])
+  @@index([fileId])
+}
+
+// ==================== NOTIFICATIONS ====================
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  data      String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+  @@index([createdAt])
+}
+
+// ==================== API KEYS ====================
+
+model ApiKey {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  keyHash     String    @unique
+  keyPrefix   String
+  permissions String    @default("read")
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([keyHash])
+  @@index([userId])
+}
+
+// ==================== BACKUP ====================
+
+model BackupLog {
+  id          String    @id @default(cuid())
+  status      String
+  type        String
+  size        BigInt?
+  path        String?
+  error       String?
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+}
