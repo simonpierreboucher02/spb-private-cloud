@@ -88,6 +88,24 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Quota check for shared spaces
+  if (folderId && folderId !== "root") {
+    const folder = await prisma.folder.findUnique({ where: { id: folderId } });
+    if (folder?.sharedSpaceId) {
+      const space = await prisma.sharedSpace.findUnique({ where: { id: folder.sharedSpaceId } });
+      if (space) {
+        const agg = await prisma.file.aggregate({
+          _sum: { size: true },
+          where: { folder: { sharedSpaceId: folder.sharedSpaceId } },
+        });
+        const usedBytes = Number(agg._sum.size || 0);
+        if (usedBytes + file.size > Number(space.quotaBytes)) {
+          return NextResponse.json({ error: "Quota de l'espace partagé dépassé (500 Go max)" }, { status: 413 });
+        }
+      }
+    }
+  }
+
   const buffer = Buffer.from(await file.arrayBuffer());
   const mimeType = mime.lookup(file.name) || file.type || "application/octet-stream";
   const { storagePath, size } = await saveFile(buffer, file.name);

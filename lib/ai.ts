@@ -7,12 +7,16 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
+const MODEL = "claude-sonnet-4-6";
+
 export async function aiSearch(query: string, userId?: string): Promise<{
-  results: Array<{ fileId: string; name: string; relevance: string; snippet: string }>;
+  results: Array<{ fileId: string; name: string; relevance: string; snippet: string; folder?: string; mimeType?: string }>;
   answer: string;
 }> {
-  const where: Record<string, unknown> = {};
-  if (userId) where.userId = userId;
+  // Include files owned by user + legacy files with no owner (userId=null)
+  const where: Record<string, unknown> = userId
+    ? { OR: [{ userId }, { userId: null }] }
+    : {};
 
   const files = await prisma.file.findMany({
     where,
@@ -31,9 +35,9 @@ export async function aiSearch(query: string, userId?: string): Promise<{
   }).join("\n");
 
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-5-20250929",
+    model: MODEL,
     max_tokens: 1024,
-    messages: [{ role: "user", content: `Tu es un assistant de recherche de fichiers. Voici la liste des fichiers:\n\n${fileList}\n\nRecherche: "${query}"\n\nRéponds en JSON:\n{"results": [{"fileId": "...", "name": "...", "relevance": "high|medium|low", "snippet": "courte explication"}], "answer": "résumé"}` }],
+    messages: [{ role: "user", content: `Tu es un assistant de recherche de fichiers. Voici la liste des fichiers:\n\n${fileList}\n\nRecherche: "${query}"\n\nRéponds en JSON:\n{"results": [{"fileId": "...", "name": "...", "relevance": "high|medium|low", "snippet": "courte explication", "folder": "nom du dossier ou null", "mimeType": "..."}], "answer": "résumé"}` }],
   });
 
   try {
@@ -59,7 +63,7 @@ export async function aiAutoTag(fileId: string): Promise<string[]> {
   }
 
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-5-20250929",
+    model: MODEL,
     max_tokens: 256,
     messages: [{ role: "user", content: `Analyse ce fichier et suggère 3-5 tags pertinents en français.\n\n${contentHint}\n\nRéponds UNIQUEMENT avec un JSON array de strings. Ex: ["finance", "rapport", "2024"]` }],
   });
@@ -87,9 +91,9 @@ export async function aiDescribe(fileId: string): Promise<string> {
         const base64 = readFileSync(filePath).toString("base64");
         const mediaType = file.mimeType as "image/jpeg" | "image/png" | "image/gif" | "image/webp";
         const response = await anthropic.messages.create({
-          model: "claude-sonnet-4-5-20250929",
-          max_tokens: 256,
-          messages: [{ role: "user", content: [{ type: "image", source: { type: "base64", media_type: mediaType, data: base64 } }, { type: "text", text: "Décris cette image en une phrase concise en français." }] }],
+          model: MODEL,
+          max_tokens: 512,
+          messages: [{ role: "user", content: [{ type: "image", source: { type: "base64", media_type: mediaType, data: base64 } }, { type: "text", text: "Décris cette image en détail en français. Mentionne le sujet principal, les couleurs, le contexte et tout élément notable." }] }],
         });
         const desc = response.content[0].type === "text" ? response.content[0].text : "";
         await prisma.file.update({ where: { id: fileId }, data: { aiDescription: desc } });
@@ -108,9 +112,9 @@ export async function aiDescribe(fileId: string): Promise<string> {
   if (file.ocrText) hint += `\nOCR: ${file.ocrText.substring(0, 500)}`;
 
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-5-20250929",
-    max_tokens: 128,
-    messages: [{ role: "user", content: `Décris ce fichier en une phrase concise en français:\n\n${hint}` }],
+    model: MODEL,
+    max_tokens: 256,
+    messages: [{ role: "user", content: `Décris ce fichier de manière utile en français (2-3 phrases):\n\n${hint}` }],
   });
   const desc = response.content[0].type === "text" ? response.content[0].text : "";
   await prisma.file.update({ where: { id: fileId }, data: { aiDescription: desc } });
@@ -128,9 +132,9 @@ export async function aiOcr(fileId: string): Promise<string> {
       const base64 = readFileSync(filePath).toString("base64");
       const mediaType = file.mimeType as "image/jpeg" | "image/png" | "image/gif" | "image/webp";
       const response = await anthropic.messages.create({
-        model: "claude-sonnet-4-5-20250929",
-        max_tokens: 2048,
-        messages: [{ role: "user", content: [{ type: "image", source: { type: "base64", media_type: mediaType, data: base64 } }, { type: "text", text: "Extrais tout le texte visible dans cette image. Retourne uniquement le texte extrait, sans commentaire." }] }],
+        model: MODEL,
+        max_tokens: 4096,
+        messages: [{ role: "user", content: [{ type: "image", source: { type: "base64", media_type: mediaType, data: base64 } }, { type: "text", text: "Extrais tout le texte visible dans cette image de manière précise. Préserve la structure (titres, listes, tableaux). Retourne uniquement le texte extrait, sans commentaire." }] }],
       });
       const text = response.content[0].type === "text" ? response.content[0].text : "";
       await prisma.file.update({ where: { id: fileId }, data: { ocrText: text } });
@@ -144,9 +148,9 @@ export async function aiOcr(fileId: string): Promise<string> {
       if (!existsSync(filePath)) return "";
       const base64 = readFileSync(filePath).toString("base64");
       const response = await anthropic.messages.create({
-        model: "claude-sonnet-4-5-20250929",
-        max_tokens: 4096,
-        messages: [{ role: "user", content: [{ type: "document", source: { type: "base64", media_type: "application/pdf", data: base64 } }, { type: "text", text: "Extrais tout le texte de ce document PDF. Retourne uniquement le texte extrait." }] as Anthropic.ContentBlockParam[] }],
+        model: MODEL,
+        max_tokens: 8192,
+        messages: [{ role: "user", content: [{ type: "document", source: { type: "base64", media_type: "application/pdf", data: base64 } }, { type: "text", text: "Extrais tout le texte de ce document PDF en préservant la structure. Retourne uniquement le texte extrait." }] as Anthropic.ContentBlockParam[] }],
       });
       const text = response.content[0].type === "text" ? response.content[0].text : "";
       await prisma.file.update({ where: { id: fileId }, data: { ocrText: text } });
@@ -156,12 +160,54 @@ export async function aiOcr(fileId: string): Promise<string> {
   return "";
 }
 
-export async function aiChat(message: string, context?: string): Promise<string> {
+export type ChatMessage = { role: "user" | "assistant"; content: string };
+
+export async function aiChat(message: string, history: ChatMessage[] = [], userId?: string): Promise<string> {
+  let fileContext = "";
+  if (userId) {
+    const where = { OR: [{ userId }, { userId: null }] };
+    const recentFiles = await prisma.file.findMany({
+      where,
+      select: { name: true, mimeType: true, aiTags: true, aiDescription: true, folder: { select: { name: true } } },
+      take: 30,
+      orderBy: { createdAt: "desc" },
+    });
+    const totalCount = await prisma.file.count({ where });
+    fileContext = `\nL'utilisateur possède ${totalCount} fichier(s) au total. Voici les 30 plus récents:\n` +
+      recentFiles.map(f =>
+        `- ${f.name} (${f.mimeType})${f.folder ? ` [dossier: ${f.folder.name}]` : ""}${f.aiDescription ? ` — ${f.aiDescription}` : ""}${f.aiTags ? ` [tags: ${f.aiTags}]` : ""}`
+      ).join("\n");
+  }
+
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-5-20250929",
-    max_tokens: 1024,
-    system: "Tu es l'assistant IA de SPB Cloud, un cloud personnel privé. Aide l'utilisateur avec ses fichiers et réponds en français.",
-    messages: [{ role: "user", content: context ? `Contexte:\n${context}\n\nQuestion: ${message}` : message }],
+    model: MODEL,
+    max_tokens: 2048,
+    system: `Tu es l'assistant IA de SPB Cloud, un cloud personnel privé. Tu aides l'utilisateur avec ses fichiers, réponds en français, et tu es concis et utile.${fileContext}`,
+    messages: [
+      ...history,
+      { role: "user", content: message },
+    ],
   });
   return response.content[0].type === "text" ? response.content[0].text : "";
+}
+
+export async function buildFileContext(userId: string): Promise<string> {
+  // Include files owned by user + legacy files with no owner (userId=null)
+  const where = { OR: [{ userId }, { userId: null }] };
+  const recentFiles = await prisma.file.findMany({
+    where,
+    select: { name: true, mimeType: true, aiTags: true, aiDescription: true, ocrText: true, folder: { select: { name: true } } },
+    take: 30,
+    orderBy: { createdAt: "desc" },
+  });
+  const totalCount = await prisma.file.count({ where });
+  return `L'utilisateur possède ${totalCount} fichier(s) au total. Voici les 30 plus récents:\n` +
+    recentFiles.map(f => {
+      const parts = [`- ${f.name} (${f.mimeType})`];
+      if (f.folder) parts.push(`[dossier: ${f.folder.name}]`);
+      if (f.aiDescription) parts.push(`— ${f.aiDescription}`);
+      if (f.aiTags) parts.push(`[tags: ${f.aiTags}]`);
+      if (f.ocrText) parts.push(`[OCR dispo: ${f.ocrText.substring(0, 150)}...]`);
+      return parts.join(" ");
+    }).join("\n");
 }

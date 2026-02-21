@@ -18,13 +18,21 @@ import {
   HardDrive,
   Key,
   Settings,
+  KeyRound,
+  Lock,
 } from "lucide-react";
 import ThemeToggle from "../theme/ThemeToggle";
 import NotificationBell from "./NotificationBell";
+import SharedBadge from "../ui/SharedBadge";
+import ChangePasswordModal from "../auth/ChangePasswordModal";
 
-const navItems = [
+const userNavItems = [
   { href: "/dashboard", label: "Fichiers", icon: FolderOpen },
   { href: "/dashboard/favorites", label: "Favoris", icon: Star },
+  { href: "/dashboard/passwords", label: "Mots de passe", icon: Lock },
+];
+
+const adminNavItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/shares", label: "Liens partagés", icon: Share2 },
   { href: "/admin/activity", label: "Activité", icon: Activity },
@@ -32,6 +40,7 @@ const navItems = [
 
 const adminItems = [
   { href: "/admin/users", label: "Utilisateurs", icon: Users },
+  { href: "/admin/shared-spaces", label: "Espaces partagés", icon: Users },
   { href: "/admin/backup", label: "Backups", icon: HardDrive },
   { href: "/admin/api-keys", label: "Clés API", icon: Key },
   { href: "/admin/settings", label: "Paramètres", icon: Settings },
@@ -44,6 +53,12 @@ interface TagData {
   _count?: { files: number };
 }
 
+interface SharedSpaceData {
+  id: string;
+  name: string;
+  quotaBytes: number;
+}
+
 interface SidebarProps {
   onNavigate?: () => void;
 }
@@ -52,13 +67,29 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [tags, setTags] = useState<TagData[]>([]);
+  const [sharedSpaces, setSharedSpaces] = useState<SharedSpaceData[]>([]);
   const [showTags, setShowTags] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
+  const [showSpaces, setShowSpaces] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
 
   useEffect(() => {
+    fetch("/api/auth/session")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.role === "admin") setIsAdmin(true);
+      })
+      .catch(() => {});
+
     fetch("/api/tags")
       .then((res) => res.json())
       .then(setTags)
+      .catch(() => {});
+
+    fetch("/api/shared-spaces/mine")
+      .then((res) => res.json())
+      .then((data) => { if (Array.isArray(data)) setSharedSpaces(data); })
       .catch(() => {});
   }, []);
 
@@ -73,6 +104,7 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
   };
 
   const isAdminActive = adminItems.some((i) => pathname === i.href);
+  const navItems = isAdmin ? [...userNavItems, ...adminNavItems] : userNavItems;
 
   return (
     <div className="h-screen flex flex-col bg-white dark:bg-[#0a0a0a] border-r border-gray-200 dark:border-white/10 transition-colors">
@@ -86,12 +118,12 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
         <ThemeToggle />
       </div>
 
-      {/* Navigation - touch optimized */}
+      {/* Navigation */}
       <nav className="flex-1 px-2 py-1 space-y-0.5 overflow-auto overscroll-contain">
         {navItems.map((item) => {
           const isActive =
             pathname === item.href ||
-            (item.href === "/dashboard" && pathname.startsWith("/dashboard") && !pathname.includes("favorites"));
+            (item.href === "/dashboard" && pathname.startsWith("/dashboard") && !pathname.includes("favorites") && !pathname.includes("shared-space") && !pathname.includes("passwords"));
           return (
             <Link
               key={item.href}
@@ -109,40 +141,76 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
           );
         })}
 
-        {/* Admin Section - toggle does NOT close sidebar */}
-        <div className="pt-3">
-          <button
-            onClick={() => setShowAdmin(!showAdmin)}
-            className={`flex items-center gap-2 px-3 py-2.5 w-full text-xs transition-colors min-h-[40px] rounded-lg active:bg-gray-50 dark:active:bg-white/5 ${
-              isAdminActive ? "text-gray-700 dark:text-gray-300" : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
-            }`}
-          >
-            {showAdmin ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-            <Settings className="w-3.5 h-3.5" />
-            <span className="uppercase tracking-wider font-medium">Administration</span>
-          </button>
-          {(showAdmin || isAdminActive) && (
-            <div className="space-y-0.5 ml-1">
-              {adminItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={handleLinkClick}
-                  className={`flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-xl transition-colors min-h-[40px] ${
-                    pathname === item.href
-                      ? "bg-gray-100 dark:bg-white/10 text-gray-900 dark:text-white font-medium"
-                      : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-white/5 active:bg-gray-100 dark:active:bg-white/10"
-                  }`}
-                >
-                  <item.icon className="w-4 h-4 flex-shrink-0" />
-                  {item.label}
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
+        {/* Shared Spaces Section */}
+        {sharedSpaces.length > 0 && (
+          <div className="pt-3">
+            <button
+              onClick={() => setShowSpaces(!showSpaces)}
+              className="flex items-center gap-2 px-3 py-2.5 w-full text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors min-h-[40px] rounded-lg active:bg-gray-50 dark:active:bg-white/5"
+            >
+              {showSpaces ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+              <Users className="w-3.5 h-3.5" />
+              <span className="uppercase tracking-wider font-medium">Espaces partagés</span>
+            </button>
+            {showSpaces && (
+              <div className="space-y-0.5 ml-1">
+                {sharedSpaces.map((space) => (
+                  <Link
+                    key={space.id}
+                    href={`/dashboard/shared-space/${space.id}`}
+                    onClick={handleLinkClick}
+                    className={`flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-xl transition-colors min-h-[40px] ${
+                      pathname === `/dashboard/shared-space/${space.id}`
+                        ? "bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300 font-medium"
+                        : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-white/5 active:bg-gray-100 dark:active:bg-white/10"
+                    }`}
+                  >
+                    <Users className="w-4 h-4 flex-shrink-0 text-purple-400" />
+                    <span className="truncate flex-1">{space.name}</span>
+                    <SharedBadge />
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
-        {/* Tags Section - toggle does NOT close sidebar */}
+        {/* Admin Section — admin only */}
+        {isAdmin && (
+          <div className="pt-3">
+            <button
+              onClick={() => setShowAdmin(!showAdmin)}
+              className={`flex items-center gap-2 px-3 py-2.5 w-full text-xs transition-colors min-h-[40px] rounded-lg active:bg-gray-50 dark:active:bg-white/5 ${
+                isAdminActive ? "text-gray-700 dark:text-gray-300" : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+              }`}
+            >
+              {showAdmin ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+              <Settings className="w-3.5 h-3.5" />
+              <span className="uppercase tracking-wider font-medium">Administration</span>
+            </button>
+            {(showAdmin || isAdminActive) && (
+              <div className="space-y-0.5 ml-1">
+                {adminItems.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={handleLinkClick}
+                    className={`flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-xl transition-colors min-h-[40px] ${
+                      pathname === item.href
+                        ? "bg-gray-100 dark:bg-white/10 text-gray-900 dark:text-white font-medium"
+                        : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-white/5 active:bg-gray-100 dark:active:bg-white/10"
+                    }`}
+                  >
+                    <item.icon className="w-4 h-4 flex-shrink-0" />
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tags Section */}
         {tags.length > 0 && (
           <div className="pt-3">
             <button
@@ -174,7 +242,14 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
       </nav>
 
       {/* Footer */}
-      <div className="px-2 py-3 border-t border-gray-200 dark:border-white/10">
+      <div className="px-2 py-3 border-t border-gray-200 dark:border-white/10 space-y-0.5">
+        <button
+          onClick={() => setShowChangePassword(true)}
+          className="flex items-center gap-3 px-3 py-3 rounded-xl text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-white/5 active:bg-gray-100 dark:active:bg-white/10 transition-colors w-full min-h-[44px]"
+        >
+          <KeyRound className="w-5 h-5" />
+          Changer le mot de passe
+        </button>
         <button
           onClick={handleLogout}
           className="flex items-center gap-3 px-3 py-3 rounded-xl text-sm text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/5 active:bg-red-100 dark:active:bg-red-500/10 transition-colors w-full min-h-[44px]"
@@ -183,6 +258,8 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
           Déconnexion
         </button>
       </div>
+
+      <ChangePasswordModal isOpen={showChangePassword} onClose={() => setShowChangePassword(false)} />
     </div>
   );
 }

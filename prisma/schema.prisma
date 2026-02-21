@@ -11,6 +11,7 @@ datasource db {
 
 model User {
   id               String   @id @default(cuid())
+  username         String?  @unique
   email            String?  @unique
   name             String?
   passwordHash     String
@@ -20,12 +21,14 @@ model User {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @default(now())
 
-  files         File[]
-  folders       Folder[]
-  permissions   Permission[]
-  notifications Notification[]
-  apiKeys       ApiKey[]
-  activityLogs  ActivityLog[]
+  files           File[]
+  folders         Folder[]
+  permissions     Permission[]
+  notifications   Notification[]
+  apiKeys         ApiKey[]
+  activityLogs    ActivityLog[]
+  sharedSpaces    SharedSpaceMember[]
+  passwordEntries PasswordEntry[]
 
   @@index([email])
   @@index([role])
@@ -66,19 +69,22 @@ model File {
 }
 
 model Folder {
-  id          String       @id @default(cuid())
-  name        String
-  parentId    String?
-  userId      String?
-  parent      Folder?      @relation("FolderTree", fields: [parentId], references: [id], onDelete: Cascade)
-  children    Folder[]     @relation("FolderTree")
-  user        User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
-  files       File[]
-  permissions Permission[]
-  createdAt   DateTime     @default(now())
+  id            String       @id @default(cuid())
+  name          String
+  parentId      String?
+  userId        String?
+  sharedSpaceId String?
+  parent        Folder?      @relation("FolderTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children      Folder[]     @relation("FolderTree")
+  user          User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  sharedSpace   SharedSpace? @relation(fields: [sharedSpaceId], references: [id], onDelete: SetNull)
+  files         File[]
+  permissions   Permission[]
+  createdAt     DateTime     @default(now())
 
   @@index([parentId])
   @@index([userId])
+  @@index([sharedSpaceId])
 }
 
 // ==================== SHARING ====================
@@ -227,4 +233,51 @@ model BackupLog {
   error       String?
   startedAt   DateTime  @default(now())
   completedAt DateTime?
+}
+
+// ==================== SHARED SPACES ====================
+
+// ==================== PASSWORD MANAGER ====================
+
+model PasswordEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  siteName  String
+  siteUrl   String?
+  username  String?
+  password  String   // AES-256-GCM encrypted
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([siteName])
+}
+
+// ==================== SHARED SPACES ====================
+
+model SharedSpace {
+  id         String              @id @default(cuid())
+  name       String
+  quotaBytes BigInt              @default(536870912000)
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+  members    SharedSpaceMember[]
+  folders    Folder[]
+
+  @@index([name])
+}
+
+model SharedSpaceMember {
+  id            String      @id @default(cuid())
+  sharedSpaceId String
+  userId        String
+  sharedSpace   SharedSpace @relation(fields: [sharedSpaceId], references: [id], onDelete: Cascade)
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  joinedAt      DateTime    @default(now())
+
+  @@unique([sharedSpaceId, userId])
+  @@index([sharedSpaceId])
+  @@index([userId])
 }

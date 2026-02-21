@@ -9,6 +9,7 @@ import toast from "react-hot-toast";
 
 interface UserData {
   id: string;
+  username: string | null;
   email: string | null;
   name: string | null;
   role: string;
@@ -22,7 +23,7 @@ export default function UserManagement() {
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [editUser, setEditUser] = useState<UserData | null>(null);
-  const [form, setForm] = useState({ email: "", name: "", password: "", role: "user" });
+  const [form, setForm] = useState({ username: "", name: "", password: "", role: "user" });
 
   const fetchUsers = async () => {
     const res = await fetch("/api/users");
@@ -41,7 +42,7 @@ export default function UserManagement() {
     if (res.ok) {
       toast.success("Utilisateur créé");
       setShowCreate(false);
-      setForm({ email: "", name: "", password: "", role: "user" });
+      setForm({ username: "", name: "", password: "", role: "user" });
       fetchUsers();
     } else {
       const data = await res.json();
@@ -53,7 +54,7 @@ export default function UserManagement() {
     if (!editUser) return;
     const data: Record<string, string> = {};
     if (form.name) data.name = form.name;
-    if (form.email) data.email = form.email;
+    if (form.username) data.username = form.username;
     if (form.role) data.role = form.role;
     if (form.password) data.password = form.password;
 
@@ -117,13 +118,13 @@ export default function UserManagement() {
               {/* First line: avatar + name/email */}
               <div className="flex items-center gap-3 flex-1 min-w-0">
                 <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-white/10 flex items-center justify-center text-sm font-medium text-gray-600 dark:text-gray-300 flex-shrink-0">
-                  {(user.name || user.email || "U")[0].toUpperCase()}
+                  {(user.name || user.username || "U")[0].toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                    {user.name || user.email || user.id}
+                    {user.name || user.username || user.id}
                   </p>
-                  <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                  <p className="text-xs text-gray-500 truncate">@{user.username}</p>
                 </div>
               </div>
               {/* Second line on mobile: role badge + file count + actions */}
@@ -139,7 +140,7 @@ export default function UserManagement() {
                 </span>
                 <div className="flex gap-1 ml-auto">
                   <button
-                    onClick={() => { setEditUser(user); setForm({ email: user.email || "", name: user.name || "", password: "", role: user.role }); }}
+                    onClick={() => { setEditUser(user); setForm({ username: user.username || "", name: user.name || "", password: "", role: user.role }); }}
                     className="min-w-[44px] min-h-[44px] flex items-center justify-center p-2.5 text-gray-400 hover:text-gray-700 dark:hover:text-white rounded-lg transition-colors"
                   >
                     <Edit2 className="w-4 h-4" />
@@ -160,32 +161,55 @@ export default function UserManagement() {
       {/* Create Modal */}
       <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Nouvel utilisateur">
         <div className="space-y-3">
-          <input type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={inputClasses} />
-          <input type="text" placeholder="Nom" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={inputClasses} />
-          <input type="password" placeholder="Mot de passe" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className={inputClasses} />
-          <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className={inputClasses}>
-            <option value="user">Utilisateur</option>
-            <option value="viewer">Lecteur</option>
-            <option value="admin">Admin</option>
-          </select>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1 ml-1">Nom d&apos;utilisateur *</label>
+            <input type="text" placeholder="ex: simon, marie42..." value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value.toLowerCase().replace(/\s/g, "") })} className={inputClasses} autoFocus autoComplete="off" />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1 ml-1">Nom affiché</label>
+            <input type="text" placeholder="ex: Simon Boucher" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={inputClasses} />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1 ml-1">Mot de passe *</label>
+            <input type="password" placeholder="Mot de passe" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className={inputClasses} />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1 ml-1">Rôle</label>
+            <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className={inputClasses}>
+              <option value="user">Utilisateur</option>
+              <option value="viewer">Lecteur</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
           <div className="flex gap-2 justify-end pt-2">
             <Button variant="ghost" onClick={() => setShowCreate(false)}>Annuler</Button>
-            <Button onClick={handleCreate}>Créer</Button>
+            <Button onClick={handleCreate} disabled={!form.username || !form.password}>Créer</Button>
           </div>
         </div>
       </Modal>
 
-      {/* Edit Modal */}
       <Modal isOpen={!!editUser} onClose={() => setEditUser(null)} title="Modifier utilisateur">
         <div className="space-y-3">
-          <input type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={inputClasses} />
-          <input type="text" placeholder="Nom" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={inputClasses} />
-          <input type="password" placeholder="Nouveau mot de passe (vide = inchangé)" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className={inputClasses} />
-          <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className={inputClasses}>
-            <option value="user">Utilisateur</option>
-            <option value="viewer">Lecteur</option>
-            <option value="admin">Admin</option>
-          </select>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1 ml-1">Nom d&apos;utilisateur</label>
+            <input type="text" placeholder="Nom d'utilisateur" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value.toLowerCase().replace(/\s/g, "") })} className={inputClasses} />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1 ml-1">Nom affiché</label>
+            <input type="text" placeholder="ex: Simon Boucher" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={inputClasses} />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1 ml-1">Nouveau mot de passe</label>
+            <input type="password" placeholder="Laisser vide pour ne pas changer" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className={inputClasses} />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1 ml-1">Rôle</label>
+            <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className={inputClasses}>
+              <option value="user">Utilisateur</option>
+              <option value="viewer">Lecteur</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
           <div className="flex gap-2 justify-end pt-2">
             <Button variant="ghost" onClick={() => setEditUser(null)}>Annuler</Button>
             <Button onClick={handleUpdate}>Sauvegarder</Button>

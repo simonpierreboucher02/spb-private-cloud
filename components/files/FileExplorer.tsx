@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Grid, List, Plus, Upload, CheckSquare, Square } from "lucide-react";
+import { Grid, List, Plus, Upload, CheckSquare, Square, Users } from "lucide-react";
 import FileCard from "./FileCard";
 import FileUpload from "./FileUpload";
 import PreviewEngine from "../preview/PreviewEngine";
 import FolderCard from "../folders/FolderCard";
 import CreateFolderModal from "../folders/CreateFolderModal";
+import CreateSharedFolderModal from "../folders/CreateSharedFolderModal";
 import SearchBar from "../ui/SearchBar";
 import Button from "../ui/Button";
 import BulkActions from "./BulkActions";
@@ -25,6 +26,7 @@ interface FolderData {
   id: string;
   name: string;
   parentId: string | null;
+  sharedSpaceId?: string | null;
   createdAt: string;
   _count?: { files: number; children: number };
 }
@@ -39,6 +41,7 @@ export default function FileExplorer({ folderId }: FileExplorerProps) {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [showUpload, setShowUpload] = useState(false);
   const [showCreateFolder, setShowCreateFolder] = useState(false);
+  const [showCreateSharedFolder, setShowCreateSharedFolder] = useState(false);
   const [previewFile, setPreviewFile] = useState<FileData | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
@@ -123,6 +126,10 @@ export default function FileExplorer({ folderId }: FileExplorerProps) {
             <Button variant="ghost" size="sm" onClick={() => setShowCreateFolder(true)} className="min-w-[40px] min-h-[40px]">
               <Plus className="w-4 h-4" />
               <span className="hidden sm:inline">Dossier</span>
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setShowCreateSharedFolder(true)} className="min-w-[40px] min-h-[40px] text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300">
+              <Users className="w-4 h-4" />
+              <span className="hidden sm:inline">Partagé</span>
             </Button>
             <Button size="sm" onClick={() => setShowUpload(!showUpload)} className="min-w-[40px] min-h-[40px]">
               <Upload className="w-4 h-4" />
@@ -228,6 +235,7 @@ export default function FileExplorer({ folderId }: FileExplorerProps) {
       )}
 
       <CreateFolderModal isOpen={showCreateFolder} onClose={() => setShowCreateFolder(false)} parentId={folderId || null} onCreated={fetchData} />
+      <CreateSharedFolderModal isOpen={showCreateSharedFolder} onClose={() => setShowCreateSharedFolder(false)} onCreated={fetchData} />
     </div>
   );
 }

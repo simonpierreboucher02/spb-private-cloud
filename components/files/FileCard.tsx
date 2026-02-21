@@ -45,12 +45,26 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   presentation: FileText,
 };
 
+const iconColorMap: Record<string, string> = {
+  image:        "text-emerald-400 dark:text-emerald-500",
+  video:        "text-purple-400 dark:text-purple-500",
+  audio:        "text-pink-400 dark:text-pink-500",
+  pdf:          "text-red-400 dark:text-red-500",
+  code:         "text-amber-400 dark:text-amber-500",
+  spreadsheet:  "text-green-500 dark:text-green-400",
+  archive:      "text-orange-400 dark:text-orange-500",
+  document:     "text-blue-500 dark:text-blue-400",
+  presentation: "text-orange-500 dark:text-orange-400",
+  file:         "text-gray-400 dark:text-gray-500",
+};
+
 export default function FileCard({ file, onPreview, onRefresh, viewMode }: FileCardProps) {
   const [showActions, setShowActions] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const iconType = getFileIcon(file.mimeType);
   const Icon = iconMap[iconType] || File;
+  const iconColor = iconColorMap[iconType] || "text-gray-400 dark:text-gray-500";
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -72,7 +86,7 @@ export default function FileCard({ file, onPreview, onRefresh, viewMode }: FileC
         className="flex items-center gap-3 px-3 py-3.5 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg cursor-pointer group transition-colors"
         onClick={() => onPreview(file)}
       >
-        <Icon className="w-5 h-5 text-gray-400 flex-shrink-0" />
+        <Icon className={`w-5 h-5 flex-shrink-0 ${iconColor}`} />
         <span className="text-sm text-gray-700 dark:text-gray-200 flex-1 truncate">{file.name}</span>
         <span className="text-sm text-gray-500 hidden sm:block">{formatFileSize(file.size)}</span>
         <span className="text-xs text-gray-500 hidden md:block">{formatDate(file.createdAt)}</span>
@@ -102,11 +116,11 @@ export default function FileCard({ file, onPreview, onRefresh, viewMode }: FileC
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="group relative bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl hover:border-gray-300 dark:hover:border-white/20 transition-colors cursor-pointer shadow-sm dark:shadow-none"
+      className={`group relative bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl hover:border-gray-300 dark:hover:border-white/20 transition-colors cursor-pointer shadow-sm dark:shadow-none ${showActions ? "z-20" : ""}`}
       onClick={() => onPreview(file)}
     >
-      {/* Preview thumbnail */}
-      <div className="aspect-square flex items-center justify-center bg-gray-50 dark:bg-white/[0.02] relative rounded-t-xl overflow-hidden">
+      {/* Preview thumbnail — overflow-hidden stays here for image crop only */}
+      <div className="aspect-square flex items-center justify-center bg-gray-50 dark:bg-white/[0.02] rounded-t-xl overflow-hidden">
         {isImage ? (
           <img
             src={`/api/files/${file.id}/preview`}
@@ -115,28 +129,28 @@ export default function FileCard({ file, onPreview, onRefresh, viewMode }: FileC
             loading="lazy"
           />
         ) : (
-          <Icon className="w-12 h-12 text-gray-300 dark:text-gray-600" />
+          <Icon className={`w-12 h-12 ${iconColor}`} />
         )}
+      </div>
 
-        {/* Actions button */}
-        <div className="absolute top-2 right-2" ref={menuRef}>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowActions(!showActions);
-            }}
-            className="p-2 bg-white/80 dark:bg-black/50 rounded-lg text-gray-500 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white sm:opacity-0 sm:group-hover:opacity-100 transition-opacity backdrop-blur-sm min-w-[40px] min-h-[40px] flex items-center justify-center"
-          >
-            <MoreVertical className="w-4 h-4" />
-          </button>
-          {showActions && (
-            <FileActions
-              file={file}
-              onClose={() => setShowActions(false)}
-              onRefresh={onRefresh}
-            />
-          )}
-        </div>
+      {/* Actions button — outside overflow-hidden so dropdown is never clipped */}
+      <div className="absolute top-2 right-2 z-20" ref={menuRef}>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowActions(!showActions);
+          }}
+          className="p-2 bg-white/80 dark:bg-black/50 rounded-lg text-gray-500 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white sm:opacity-0 sm:group-hover:opacity-100 transition-opacity backdrop-blur-sm min-w-[40px] min-h-[40px] flex items-center justify-center"
+        >
+          <MoreVertical className="w-4 h-4" />
+        </button>
+        {showActions && (
+          <FileActions
+            file={file}
+            onClose={() => setShowActions(false)}
+            onRefresh={onRefresh}
+          />
+        )}
       </div>
 
       {/* Info */}

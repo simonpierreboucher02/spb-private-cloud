@@ -7,10 +7,12 @@ import { useState, useRef, useEffect } from "react";
 import toast from "react-hot-toast";
 import Modal from "../ui/Modal";
 import Button from "../ui/Button";
+import SharedBadge from "../ui/SharedBadge";
 
 interface FolderData {
   id: string;
   name: string;
+  sharedSpaceId?: string | null;
   _count?: { files: number; children: number };
 }
 
@@ -90,6 +92,7 @@ export default function FolderCard({ folder, onRefresh, viewMode }: FolderCardPr
         >
           <Folder className="w-5 h-5 text-blue-400 flex-shrink-0" />
           <span className="text-sm text-gray-700 dark:text-gray-200 flex-1 truncate">{folder.name}</span>
+          {folder.sharedSpaceId && <SharedBadge />}
           {folder._count && (
             <span className="text-xs text-gray-500">
               {folder._count.files} fichiers
@@ -158,9 +161,12 @@ export default function FolderCard({ folder, onRefresh, viewMode }: FolderCardPr
         onClick={() => router.push(`/dashboard/folder/${folder.id}`)}
       >
         <div className="flex items-center gap-3">
-          <Folder className="w-8 h-8 text-blue-400" />
+          <Folder className="w-8 h-8 text-blue-400 flex-shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="text-sm text-gray-700 dark:text-gray-200 truncate">{folder.name}</p>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <p className="text-sm text-gray-700 dark:text-gray-200 truncate">{folder.name}</p>
+              {folder.sharedSpaceId && <SharedBadge />}
+            </div>
             {folder._count && (
               <p className="text-xs text-gray-500">
                 {folder._count.files} fichiers, {folder._count.children} dossiers

@@ -12,14 +12,14 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   const body = await request.json();
   const data: Record<string, unknown> = {};
   if (body.name !== undefined) data.name = body.name;
-  if (body.email !== undefined) data.email = body.email;
+  if (body.username !== undefined) data.username = body.username;
   if (body.role !== undefined) data.role = body.role;
   if (body.password) data.passwordHash = await hashPassword(body.password);
 
   const user = await prisma.user.update({
     where: { id: params.id },
     data,
-    select: { id: true, email: true, name: true, role: true },
+    select: { id: true, username: true, name: true, role: true },
   });
   return NextResponse.json(user);
 }

@@ -25,11 +25,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(folders);
   }
 
+  const sharedSpaceId = searchParams.get("sharedSpaceId");
   const where: Record<string, unknown> = {};
-  if (parentId === "root" || parentId === null) {
-    where.parentId = null;
+
+  if (sharedSpaceId) {
+    where.sharedSpaceId = sharedSpaceId;
+    if (parentId === "root" || parentId === null) where.parentId = null;
+    else if (parentId) where.parentId = parentId;
   } else {
-    where.parentId = parentId;
+    if (parentId === "root" || parentId === null) where.parentId = null;
+    else where.parentId = parentId;
   }
 
   const folders = await prisma.folder.findMany({
@@ -45,7 +50,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { name, parentId } = body;
+  const { name, parentId, sharedSpaceId } = body;
 
   if (!name || !name.trim()) {
     return NextResponse.json({ error: "Folder name required" }, { status: 400 });
@@ -55,6 +60,7 @@ export async function POST(request: NextRequest) {
     data: {
       name: name.trim(),
       parentId: parentId && parentId !== "root" ? parentId : null,
+      sharedSpaceId: sharedSpaceId || null,
     },
   });
 

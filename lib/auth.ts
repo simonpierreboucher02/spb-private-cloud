@@ -1,16 +1,18 @@
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
 
-export async function verifyPassword(password: string, email?: string): Promise<{ valid: boolean; user: { id: string; role: string; twoFactorEnabled: boolean } | null }> {
+export async function verifyPassword(password: string, username?: string): Promise<{ valid: boolean; user: { id: string; role: string; twoFactorEnabled: boolean } | null }> {
   let user;
-  if (email) {
-    user = await prisma.user.findUnique({ where: { email } });
+  if (username) {
+    user = await prisma.user.findFirst({
+      where: { OR: [{ username }, { email: username }] },
+    });
     if (!user) return { valid: false, user: null };
     const valid = await bcrypt.compare(password, user.passwordHash);
     return { valid, user: valid ? { id: user.id, role: user.role, twoFactorEnabled: user.twoFactorEnabled } : null };
   }
 
-  // Legacy: try all users (for simple password-only login)
+  // Fallback: single user / password-only login
   const users = await prisma.user.findMany();
   for (const u of users) {
     const match = await bcrypt.compare(password, u.passwordHash);

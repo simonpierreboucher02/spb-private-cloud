@@ -12,10 +12,10 @@ export async function POST(request: NextRequest) {
   if (!allowed) return NextResponse.json({ error: "Trop de tentatives. Réessayez dans 1 minute." }, { status: 429 });
 
   const body = await request.json();
-  const { password, email } = body;
+  const { password, username } = body;
   if (!password) return NextResponse.json({ error: "Mot de passe requis" }, { status: 400 });
 
-  const { valid, user } = await verifyPassword(password, email || undefined);
+  const { valid, user } = await verifyPassword(password, username || undefined);
   if (!valid || !user) return NextResponse.json({ error: "Identifiants incorrects" }, { status: 401 });
 
   const response = NextResponse.json({ success: true, requires2FA: user.twoFactorEnabled });

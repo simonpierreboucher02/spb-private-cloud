@@ -3,11 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Cloud, Lock, Eye, EyeOff, Loader2, Mail, Shield } from "lucide-react";
+import { Cloud, Lock, Eye, EyeOff, Loader2, User, Shield } from "lucide-react";
 import ThemeToggle from "@/components/theme/ThemeToggle";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [totpCode, setTotpCode] = useState("");
   const [error, setError] = useState("");
@@ -27,7 +27,7 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password, email: email || undefined }),
+        body: JSON.stringify({ password, username: username || undefined }),
       });
 
       const data = await res.json();
@@ -103,13 +103,14 @@ export default function LoginPage() {
         {!needs2FA ? (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
               <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Email (optionnel)"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Nom d'utilisateur"
                 className={inputClasses}
+                autoComplete="username"
               />
             </div>
 
@@ -121,7 +122,7 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Mot de passe"
                 className={inputClasses}
-                autoFocus
+                autoComplete="current-password"
               />
               <button
                 type="button"

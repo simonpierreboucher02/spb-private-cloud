@@ -11,7 +11,14 @@ const CodePreview = dynamic(() => import("./CodePreview"), { ssr: false });
 const CsvJsonPreview = dynamic(() => import("./CsvJsonPreview"), { ssr: false });
 const MarkdownPreview = dynamic(() => import("./MarkdownPreview"), { ssr: false });
 const ArchivePreview = dynamic(() => import("./ArchivePreview"), { ssr: false });
+const WordPreview = dynamic(() => import("./WordPreview"), { ssr: false });
 const FallbackPreview = dynamic(() => import("./FallbackPreview"), { ssr: false });
+
+const WORD_MIMES = [
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
+  "application/msword", // .doc
+  "application/vnd.oasis.opendocument.text", // .odt
+];
 
 const plugins: PreviewPlugin[] = [
   {
@@ -71,6 +78,13 @@ const plugins: PreviewPlugin[] = [
     priority: 5,
     component: CodePreview as any,
     supportsEdit: true,
+  },
+  {
+    id: "word",
+    name: "Word",
+    canHandle: (mime) => WORD_MIMES.includes(mime),
+    priority: 15,
+    component: WordPreview as any,
   },
   {
     id: "archive",

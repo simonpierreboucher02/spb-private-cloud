@@ -47,6 +47,7 @@
     "iron-session": "^8.0.4",
     "jszip": "^3.10.1",
     "lucide-react": "^0.564.0",
+    "mammoth": "^1.11.0",
     "mime-types": "^3.0.2",
     "next": "14.2.35",
     "otplib": "^13.3.0",
