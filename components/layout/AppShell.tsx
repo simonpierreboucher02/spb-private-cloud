@@ -15,19 +15,19 @@ export default function AppShell({ children }: AppShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a] flex transition-colors">
-      {/* Desktop Sidebar */}
-      <div className="hidden lg:block w-64 flex-shrink-0">
+    <div className="h-screen overflow-hidden bg-gray-50 dark:bg-[#0a0a0a] flex transition-colors">
+      {/* Desktop Sidebar — fixed height, scrolls independently */}
+      <div className="hidden lg:flex flex-col w-64 flex-shrink-0 h-full overflow-y-auto">
         <Sidebar />
       </div>
 
       {/* Mobile Sidebar Overlay */}
       <MobileNav isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col min-h-screen min-w-0">
-        {/* Mobile Header - safe area + larger touch targets */}
-        <div className="lg:hidden flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-white/10 bg-white dark:bg-[#0a0a0a] transition-colors safe-top">
+      {/* Main Content — fills remaining space, scrolls independently */}
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+        {/* Mobile Header */}
+        <div className="lg:hidden flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-white/10 bg-white dark:bg-[#0a0a0a] transition-colors safe-top shrink-0">
           <button
             onClick={() => setSidebarOpen(true)}
             className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white p-3 -ml-1 min-w-[44px] min-h-[44px] flex items-center justify-center active:bg-gray-100 dark:active:bg-white/10 rounded-xl transition-colors"
@@ -43,8 +43,8 @@ export default function AppShell({ children }: AppShellProps) {
           </div>
         </div>
 
-        {/* Content - with safe area bottom for notched devices */}
-        <main className="flex-1 overflow-auto pb-safe">
+        {/* Content */}
+        <main className="flex-1 overflow-auto pb-safe min-h-0">
           {children}
         </main>
       </div>

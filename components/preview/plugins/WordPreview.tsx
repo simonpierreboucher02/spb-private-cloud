@@ -1,27 +1,47 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Loader2, Download, FileText } from "lucide-react";
+import dynamic from "next/dynamic";
 import type { PreviewPluginProps } from "./types";
 
-export default function WordPreview({ file }: PreviewPluginProps) {
+// Load Tiptap editor only on demand (heavy bundle)
+const WordTiptapEditor = dynamic(() => import("./WordTiptapEditor"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex flex-col items-center justify-center h-full gap-3 text-gray-400">
+      <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
+      <p className="text-sm">Chargement de l&apos;éditeur…</p>
+    </div>
+  ),
+});
+
+export default function WordPreview({ file, isEditing, onSave }: PreviewPluginProps) {
   const [html, setHtml] = useState<string | null>(null);
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
+  // Incremented when returning from edit mode to force re-fetch from server
+  const [fetchKey, setFetchKey] = useState(0);
+  const prevEditingRef = useRef(isEditing);
+
+  // When switching from edit → view, re-fetch to show saved content
+  useEffect(() => {
+    if (!isEditing && prevEditingRef.current) {
+      setFetchKey((k) => k + 1);
+    }
+    prevEditingRef.current = isEditing;
+  }, [isEditing]);
 
   useEffect(() => {
     let cancelled = false;
-
     const convert = async () => {
       setLoading(true);
       setError(false);
+      setHtml(null);
       try {
-        // Fetch the raw file bytes
-        const res = await fetch(`/api/files/${file.id}/download`);
+        const res = await fetch(`/api/files/${file.id}/download?t=${Date.now()}`);
         if (!res.ok) throw new Error("Download failed");
         const arrayBuffer = await res.arrayBuffer();
-
-        // mammoth converts docx → clean HTML
         const mammoth = await import("mammoth");
         const result = await mammoth.convertToHtml(
           { arrayBuffer },
@@ -35,21 +55,36 @@ export default function WordPreview({ file }: PreviewPluginProps) {
             ],
           }
         );
-
-        if (!cancelled) {
-          setHtml(result.value || "<p>Document vide.</p>");
-        }
+        if (!cancelled) setHtml(result.value || "<p>Document vide.</p>");
       } catch {
         if (!cancelled) setError(true);
       } finally {
         if (!cancelled) setLoading(false);
       }
     };
-
     convert();
     return () => { cancelled = true; };
-  }, [file.id]);
+  }, [file.id, fetchKey]);
 
+  // Edit mode — render Tiptap editor once html is ready
+  if (isEditing) {
+    if (loading) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full gap-3 text-gray-400">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
+          <p className="text-sm">Chargement du document…</p>
+        </div>
+      );
+    }
+    return (
+      <WordTiptapEditor
+        initialHtml={html ?? "<p>Document vide.</p>"}
+        onSave={onSave ? async (blob, v) => onSave(blob, v) : undefined}
+      />
+    );
+  }
+
+  // Read mode
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3 text-gray-400">
@@ -77,10 +112,8 @@ export default function WordPreview({ file }: PreviewPluginProps) {
 
   return (
     <div className="h-full overflow-auto bg-gray-50 dark:bg-[#1a1a1a]">
-      {/* Page-like container */}
       <div className="max-w-3xl mx-auto my-6 px-4 sm:px-6">
         <div className="bg-white dark:bg-[#242424] shadow-md rounded-sm px-8 py-10 sm:px-14 sm:py-12 min-h-[500px]">
-          {/* Download link */}
           <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100 dark:border-white/10">
             <div className="flex items-center gap-2">
               <FileText className="w-4 h-4 text-blue-500" />
@@ -96,8 +129,6 @@ export default function WordPreview({ file }: PreviewPluginProps) {
               Télécharger
             </button>
           </div>
-
-          {/* Rendered Word content */}
           <div
             className="word-content prose prose-sm sm:prose dark:prose-invert max-w-none"
             dangerouslySetInnerHTML={{ __html: html ?? "" }}
@@ -105,7 +136,6 @@ export default function WordPreview({ file }: PreviewPluginProps) {
         </div>
       </div>
 
-      {/* Scoped styles for Word content */}
       <style jsx global>{`
         .word-content h1 { font-size: 1.6rem; font-weight: 700; margin-bottom: 0.5rem; margin-top: 1.5rem; }
         .word-content h2 { font-size: 1.3rem; font-weight: 600; margin-bottom: 0.4rem; margin-top: 1.2rem; }

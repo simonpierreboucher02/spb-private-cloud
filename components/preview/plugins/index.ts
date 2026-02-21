@@ -12,12 +12,21 @@ const CsvJsonPreview = dynamic(() => import("./CsvJsonPreview"), { ssr: false })
 const MarkdownPreview = dynamic(() => import("./MarkdownPreview"), { ssr: false });
 const ArchivePreview = dynamic(() => import("./ArchivePreview"), { ssr: false });
 const WordPreview = dynamic(() => import("./WordPreview"), { ssr: false });
+const ExcelPreview = dynamic(() => import("./ExcelPreview"), { ssr: false });
 const FallbackPreview = dynamic(() => import("./FallbackPreview"), { ssr: false });
 
 const WORD_MIMES = [
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
   "application/msword", // .doc
   "application/vnd.oasis.opendocument.text", // .odt
+];
+
+const EXCEL_MIMES = [
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
+  "application/vnd.ms-excel", // .xls
+  "application/vnd.ms-excel.sheet.macroEnabled.12", // .xlsm
+  "application/vnd.ms-excel.sheet.binary.macroEnabled.12", // .xlsb
+  "application/vnd.oasis.opendocument.spreadsheet", // .ods
 ];
 
 const plugins: PreviewPlugin[] = [
@@ -48,6 +57,7 @@ const plugins: PreviewPlugin[] = [
     canHandle: (mime) => mime === "application/pdf",
     priority: 10,
     component: PdfPreview as any,
+    supportsEdit: true,
   },
   {
     id: "csv-json",
@@ -85,6 +95,15 @@ const plugins: PreviewPlugin[] = [
     canHandle: (mime) => WORD_MIMES.includes(mime),
     priority: 15,
     component: WordPreview as any,
+    supportsEdit: true,
+  },
+  {
+    id: "excel",
+    name: "Excel",
+    canHandle: (mime) => EXCEL_MIMES.includes(mime),
+    priority: 15,
+    component: ExcelPreview as any,
+    supportsEdit: true,
   },
   {
     id: "archive",

@@ -29,12 +29,12 @@ async function findMentionedFile(message: string, userId?: string) {
 }
 
 // Build content blocks for a file to send to Claude
-function buildFileBlocks(file: {
+async function buildFileBlocks(file: {
   name: string;
   mimeType: string;
   storagePath: string;
   ocrText: string | null;
-}): Anthropic.ContentBlockParam[] {
+}): Promise<Anthropic.ContentBlockParam[]> {
   const filePath = getFilePath(file.storagePath);
   if (!existsSync(filePath)) return [];
 
@@ -50,7 +50,7 @@ function buildFileBlocks(file: {
       ];
     }
 
-    // Images — send as image block
+    // Images — send as image block (base64)
     if (file.mimeType.startsWith("image/")) {
       const supported = ["image/jpeg", "image/png", "image/gif", "image/webp"];
       if (supported.includes(file.mimeType)) {
@@ -65,6 +65,38 @@ function buildFileBlocks(file: {
             },
           },
         ];
+      }
+    }
+
+    // Word documents — extract text via mammoth
+    if (
+      file.mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+      file.mimeType === "application/msword"
+    ) {
+      const mammoth = await import("mammoth");
+      const result = await mammoth.extractRawText({ path: filePath });
+      const text = result.value.substring(0, 50000);
+      if (text.trim()) {
+        return [{ type: "text", text: `Contenu du document Word "${file.name}":\n${text}` }];
+      }
+    }
+
+    // Excel spreadsheets — extract as CSV via SheetJS
+    if (
+      file.mimeType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+      file.mimeType === "application/vnd.ms-excel"
+    ) {
+      const XLSX = await import("xlsx");
+      const workbook = XLSX.readFile(filePath);
+      const parts: string[] = [];
+      for (const sheetName of workbook.SheetNames) {
+        const sheet = workbook.Sheets[sheetName];
+        const csv = XLSX.utils.sheet_to_csv(sheet);
+        parts.push(`[Feuille: ${sheetName}]\n${csv.substring(0, 15000)}`);
+      }
+      const content = parts.join("\n\n").substring(0, 50000);
+      if (content.trim()) {
+        return [{ type: "text", text: `Contenu du tableur Excel "${file.name}":\n${content}` }];
       }
     }
 
@@ -87,7 +119,9 @@ function buildFileBlocks(file: {
         { type: "text", text: `Texte extrait du fichier "${file.name}" (OCR):\n${file.ocrText}` },
       ];
     }
-  } catch {}
+  } catch (err) {
+    console.error("[chat] buildFileBlocks error:", err);
+  }
   return [];
 }
 
@@ -112,7 +146,7 @@ ${fileContext}`;
     // Build user message — attach file content if a file is mentioned
     let userContent: Anthropic.ContentBlockParam[];
     if (mentionedFile) {
-      const fileBlocks = buildFileBlocks(mentionedFile);
+      const fileBlocks = await buildFileBlocks(mentionedFile);
       if (fileBlocks.length > 0) {
         userContent = [...fileBlocks, { type: "text", text: message }];
       } else {

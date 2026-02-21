@@ -82,7 +82,7 @@ export default function PreviewEngine({
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         className={`fixed inset-0 z-50 flex flex-col bg-white dark:bg-[#0a0a0a] transition-colors ${
-          fullscreen ? "" : "lg:relative lg:inset-auto lg:h-full"
+          fullscreen ? "lg:left-64" : "lg:relative lg:inset-auto lg:h-full"
         }`}
       >
         <PreviewToolbar
@@ -107,7 +107,7 @@ export default function PreviewEngine({
               fullscreen={fullscreen}
             />
 
-            {files.length > 1 && onNavigate && (
+            {files.length > 1 && onNavigate && !isEditing && (
               <PreviewNavigation
                 files={files}
                 currentFile={file}

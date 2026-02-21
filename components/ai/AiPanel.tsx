@@ -23,6 +23,9 @@ import {
   AlertCircle,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 
 interface AiResult {
   fileId: string;
@@ -71,6 +74,57 @@ const mimeIcon = (mime: string) => {
 
 const inputClasses =
   "w-full bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg px-4 py-3 text-gray-900 dark:text-white text-sm focus:outline-none focus:border-purple-400 dark:focus:border-purple-500 placeholder-gray-400 dark:placeholder-gray-500";
+
+// Markdown renderer with code syntax highlighting
+function MarkdownContent({ content }: { content: string }) {
+  return (
+    <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-headings:my-2 prose-blockquote:my-1 prose-pre:p-0 prose-pre:bg-transparent prose-pre:my-2 prose-code:before:content-none prose-code:after:content-none prose-table:text-xs prose-th:py-1 prose-td:py-1">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          code({ className, children, ...props }) {
+            const match = /language-(\w+)/.exec(className || "");
+            const codeStr = String(children).replace(/\n$/, "");
+            const isBlock = match || codeStr.includes("\n");
+            if (isBlock) {
+              return (
+                <SyntaxHighlighter
+                  style={oneDark as Record<string, React.CSSProperties>}
+                  language={match?.[1] || "text"}
+                  PreTag="div"
+                  className="!rounded-lg !text-xs !my-0 !bg-gray-900"
+                  customStyle={{ margin: 0, borderRadius: "0.5rem", fontSize: "0.75rem" }}
+                >
+                  {codeStr}
+                </SyntaxHighlighter>
+              );
+            }
+            return (
+              <code
+                className="bg-gray-200 dark:bg-white/15 px-1.5 py-0.5 rounded text-[11px] font-mono text-purple-700 dark:text-purple-300"
+                {...props}
+              >
+                {children}
+              </code>
+            );
+          },
+          pre({ children }) {
+            return <>{children}</>;
+          },
+          a({ href, children }) {
+            return (
+              <a href={href} target="_blank" rel="noopener noreferrer" className="text-purple-500 underline underline-offset-2 hover:text-purple-400">
+                {children}
+              </a>
+            );
+          },
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  );
+}
 
 export default function AiPanel() {
   const [open, setOpen] = useState(false);
@@ -384,9 +438,7 @@ export default function AiPanel() {
                           }`}
                         >
                           {msg.role === "assistant" ? (
-                            <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0.5 prose-headings:my-1">
-                              <ReactMarkdown>{msg.content}</ReactMarkdown>
-                            </div>
+                            <MarkdownContent content={msg.content} />
                           ) : (
                             msg.content
                           )}
@@ -401,9 +453,7 @@ export default function AiPanel() {
                         </div>
                         <div className="max-w-[82%] px-3 py-2.5 rounded-2xl rounded-tl-sm bg-gray-100 dark:bg-white/10 text-sm text-gray-900 dark:text-gray-100 leading-relaxed">
                           {streamingContent ? (
-                            <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1">
-                              <ReactMarkdown>{streamingContent}</ReactMarkdown>
-                            </div>
+                            <MarkdownContent content={streamingContent} />
                           ) : (
                             <span className="flex items-center gap-1">
                               {[0, 150, 300].map((d) => (
@@ -729,9 +779,7 @@ export default function AiPanel() {
                       {analyserResult && (
                         <div className="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg p-3.5">
                           <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">{analyserResult.type}</p>
-                          <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1">
-                            <ReactMarkdown>{analyserResult.content}</ReactMarkdown>
-                          </div>
+                          <MarkdownContent content={analyserResult.content} />
                         </div>
                       )}
                     </div>

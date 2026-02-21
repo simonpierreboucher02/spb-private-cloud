@@ -12,15 +12,7 @@ import SearchBar from "../ui/SearchBar";
 import Button from "../ui/Button";
 import BulkActions from "./BulkActions";
 import { motion, AnimatePresence } from "framer-motion";
-
-interface FileData {
-  id: string;
-  name: string;
-  size: number;
-  mimeType: string;
-  createdAt: string;
-  folderId?: string | null;
-}
+import type { FileData } from "@/types/files";
 
 interface FolderData {
   id: string;

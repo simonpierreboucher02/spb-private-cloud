@@ -107,7 +107,7 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
   const navItems = isAdmin ? [...userNavItems, ...adminNavItems] : userNavItems;
 
   return (
-    <div className="h-screen flex flex-col bg-white dark:bg-[#0a0a0a] border-r border-gray-200 dark:border-white/10 transition-colors">
+    <div className="h-full flex flex-col bg-white dark:bg-[#0a0a0a] border-r border-gray-200 dark:border-white/10 transition-colors">
       {/* Logo */}
       <div className="px-4 py-4 flex items-center gap-2">
         <div className="w-9 h-9 rounded-xl bg-gray-100 dark:bg-white/10 flex items-center justify-center flex-shrink-0">
